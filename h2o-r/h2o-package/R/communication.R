@@ -138,8 +138,11 @@
   if ((method == "GET") || (method == "DELETE")) {
     h <- basicHeaderGatherer()
     t <- basicTextGatherer(.mapUnicode = FALSE)
+    curlFxn <- curlPerform
     if(getBinary){
-      tmp <- tryCatch(getBinaryURL(url,
+      curlFxn <- getBinaryURL
+    }
+    tmp <- tryCatch(curlFxn(url = url,
                                    #Identify curl options in .opts
                                    .opts = curlOptions(customrequest = method,
                                                        writefunction = t$update,
@@ -149,19 +152,7 @@
                                                        verbose = FALSE,
                                                        timeout = timeout_secs,
                                                        .opts = opts)),
-        error = function(x) { .__curlError <<- TRUE; .__curlErrorMessage <<- x$message })
-    }else{
-      tmp <- tryCatch(curlPerform(url = url,
-                                customrequest = method,
-                                writefunction = t$update,
-                                headerfunction = h$update,
-                                useragent=R.version.string,
-                                httpheader = header,
-                                verbose = FALSE,
-                                timeout = timeout_secs,
-                                .opts = opts),
-                    error = function(x) { .__curlError <<- TRUE; .__curlErrorMessage <<- x$message })
-    }
+    error = function(x) { .__curlError <<- TRUE; .__curlErrorMessage <<- x$message })
     if (! .__curlError) {
       httpStatusCode = as.numeric(h$value()["status"])
       httpStatusMessage = h$value()["statusMessage"]

@@ -24,6 +24,10 @@ public class IcedBitSet extends Iced {
   private int _nbits;   // Number of bits-in-a-row
   private int _bitoff;  // Number of bits discarded from beginning (inclusive min)
 
+  public boolean isInRange(int b) {
+    return b >= _bitoff && b < _bitoff + _nbits;
+  }
+
   public IcedBitSet(int nbits) { this(nbits, 0); }
   public IcedBitSet(int nbits, int bitoff) {
     // For small bitsets, just use a no-offset fixed-length format

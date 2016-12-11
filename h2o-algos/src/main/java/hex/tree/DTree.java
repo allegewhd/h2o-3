@@ -551,8 +551,10 @@ public class DTree extends Iced {
 
     public int getChildNodeID(Chunk [] chks, int row ) {
       double d = chks[_split._col].atd(row);
-      int bin;
-      if (!Double.isNaN(d)) {
+      int bin = -1;
+      boolean isNA = Double.isNaN(d);
+
+      if (!isNA) {
         if (_split._nasplit == DHistogram.NASplitDir.NAvsREST)
           bin = 0;
         else if (_split._equal == 0) {
@@ -561,11 +563,18 @@ public class DTree extends Iced {
 //        else if (_split._equal == 1)
 //          bin = d == _splat ? 1 : 0;
         }
-        else if (_split._equal == 2 || _split._equal == 3)
-          bin = _split._bs.contains((int) d) ? 1 : 0; // contains goes right
-        else throw H2O.unimpl();
-      } else {
-        // NA handling
+        else if (_split._equal == 2 || _split._equal == 3) {
+          int b = (int)d;
+          if (_split._bs.isInRange(b)) {
+            bin = _split._bs.contains(b) ? 1 : 0; // contains goes right
+          } else {
+            isNA = true; //being outside the bitset
+          }
+        }
+      }
+
+      // NA handling
+      if (isNA) {
         if (_split._nasplit== DHistogram.NASplitDir.NALeft || _split._nasplit == DHistogram.NASplitDir.Left) {
           bin = 0;
         } else if (_split._nasplit == DHistogram.NASplitDir.NARight || _split._nasplit == DHistogram.NASplitDir.Right || _split._nasplit == DHistogram.NASplitDir.NAvsREST) {
@@ -775,7 +784,7 @@ public class DTree extends Iced {
       idxs = MemoryManager.malloc4(nbins+1); // Reverse index
       for( int i=0; i<nbins+1; i++ ) idxs[i] = i;
       final double[] avgs = MemoryManager.malloc8d(nbins+1);
-      for( int i=0; i<nbins; i++ ) avgs[i] = hs.w(i)==0 ? 0 : hs.wY(i) / hs.w(i); // Average response
+      for( int i=0; i<nbins; i++ ) avgs[i] = hs.w(i)==0 ? 0 /* value doesn't matter */: hs.wY(i) / hs.w(i); // Average response
       avgs[nbins] = Double.MAX_VALUE;
       ArrayUtils.sort(idxs, avgs);
       // Fill with sorted data.  Makes a copy, so the original data remains in
@@ -929,18 +938,47 @@ public class DTree extends Iced {
       }
     }
 
+    double nLeft = wlo[best];
+    double nRight = whi[best];
+
     // For categorical (unordered) predictors, we sorted the bins by average
     // prediction then found the optimal split on sorted bins
     IcedBitSet bs = null;       // In case we need an arbitrary bitset
     if( idxs != null ) {        // We sorted bins; need to build a bitset
-      bs = new IcedBitSet((int)hs._maxEx-(int)hs._min, (int)hs._min);
+      int off = (int)hs._min;
+      bs = new IcedBitSet((int)hs._maxEx-off, off);
       for( int i=best; i<nbins; i++ )
-        bs.set(idxs[i] + (int)hs._min);
+        bs.set(idxs[i] + off);
+
+      // Throw empty (unseen) categorical buckets into the majority direction (should behave like NAs during testing)
+      int nonEmptyThatWentRight = 0;
+      int nonEmptyThatWentLeft = 0;
+      for (int i=0; i<nbins; i++) {
+        if (hs.w(i) > 0) {
+          if (bs.contains(i + off))
+            nonEmptyThatWentRight++;
+          else
+            nonEmptyThatWentLeft++;
+        }
+      }
+      boolean shouldGoLeft = nonEmptyThatWentLeft > nonEmptyThatWentRight;
+      for (int i=0; i<nbins; i++) {
+        if (!bs.isInRange(i)) continue;
+        if (hs.w(i) == 0) {
+          if (bs.contains(i + off) && shouldGoLeft) {
+            bs.clear(i + off);
+          }
+          if (!bs.contains(i + off) && !shouldGoLeft) {
+            bs.set(i + off);
+          }
+        }
+      }
 
       if (bs.cardinality()==0 || bs.cardinality()==bs.size()) {
 //        Log.info("Not splitting: no separation of categoricals possible");
         return null;
       }
+
       equal = (byte)(bs.max() <= 32 ? 2 : 3); // Flag for bitset split; also check max size
     }
 
@@ -955,8 +993,6 @@ public class DTree extends Iced {
       return null;
     }
 
-    double nLeft = wlo[best];
-    double nRight = whi[best];
     double predLeft = wYlo[best];
     double predRight = wYhi[best];
 

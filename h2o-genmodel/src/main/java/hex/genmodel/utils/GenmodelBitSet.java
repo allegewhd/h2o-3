@@ -38,6 +38,10 @@ public class GenmodelBitSet {
         _byteoff = byteoff;
     }
 
+  public boolean isInRange(int b) {
+    return b >= _bitoff && b < _bitoff + _nbits;
+  }
+
     public boolean contains(int idx) {
         if (idx < 0) throw new IndexOutOfBoundsException("idx < 0: " + idx);
         idx -= _bitoff;

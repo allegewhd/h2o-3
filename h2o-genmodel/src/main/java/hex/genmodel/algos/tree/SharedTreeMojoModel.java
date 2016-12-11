@@ -83,7 +83,7 @@ public abstract class SharedTreeMojoModel extends MojoModel {
             float weightR = ab.get4f();
 
             double d = row[colId];
-            if (Double.isNaN(d)? !leftward : !naVsRest && (equal == 0? d >= splitVal : bs.contains((int)d))) {
+            if (Double.isNaN(d) || (bs != null && !bs.isInRange((int)d)) ? !leftward : !naVsRest && (equal == 0? d >= splitVal : bs.contains((int)d))) {
                 // go RIGHT
                 switch (lmask) {
                     case 0:  ab.skip(ab.get1U());  break;

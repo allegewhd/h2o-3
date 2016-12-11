@@ -176,7 +176,7 @@ class SharedTreeNode {
         else if (includeAllLevels) {
           includeThisLevel = calculateIncludeThisLevel(inheritedInclusiveLevels, i);
         }
-        else if (bs.contains(i) == nodeBitsetDoesContain) {
+        else if (bs.isInRange(i) && bs.contains(i) == nodeBitsetDoesContain) {
           includeThisLevel = calculateIncludeThisLevel(inheritedInclusiveLevels, i);
         }
       }
